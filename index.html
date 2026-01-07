@@ -1,0 +1,2182 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analýza Skladu BRQ - Moderní Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #2563eb;
+            --primary-dark: #1e40af;
+            --secondary: #64748b;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --bg-main: #f8fafc;
+            --bg-card: #ffffff;
+            --text-primary: #0f172a;
+            --text-secondary: #64748b;
+            --border: #e2e8f0;
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            --radius: 12px;
+            --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-main);
+            color: var(--text-primary);
+            line-height: 1.6;
+            font-size: 14px;
+        }
+
+        /* SIDEBAR */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 240px;
+            height: 100vh;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 24px 0;
+            z-index: 1000;
+        }
+
+        .sidebar-header {
+            padding: 0 24px 24px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .sidebar-header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .sidebar-header p {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .sidebar-nav {
+            padding: 16px 12px;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            margin-bottom: 4px;
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .nav-item:hover {
+            background: var(--bg-main);
+            color: var(--text-primary);
+        }
+
+        .nav-item.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* MAIN CONTENT */
+        .main-content {
+            margin-left: 240px;
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .top-bar {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title {
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        /* STATS GRID */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            transition: var(--transition);
+        }
+
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .stat-card h3 {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+        }
+
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .stat-card.warning .value { color: var(--danger); }
+        .stat-card.success .value { color: var(--success); }
+        .stat-card.info .value { color: var(--primary); }
+
+        .mini-stat {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: var(--text-secondary);
+            padding-top: 8px;
+            border-top: 1px solid var(--border);
+        }
+
+        /* ALERT */
+        .alert-box {
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-left: 4px solid var(--danger);
+            border-radius: var(--radius);
+            padding: 16px 20px;
+            margin-bottom: 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .alert-box h4 {
+            color: var(--danger);
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .alert-box p {
+            color: #991b1b;
+            font-size: 13px;
+        }
+
+        .alert-box button {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        /* CHARTS */
+        .content-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .chart-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            height: 280px;
+        }
+
+        .chart-card h2 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .chart-card canvas {
+            max-height: 220px !important;
+        }
+
+        /* CONTROLS */
+        .controls {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            margin-bottom: 24px;
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .controls input,
+        .controls select {
+            padding: 8px 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 13px;
+            outline: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .controls input {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .controls input:focus,
+        .controls select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .controls button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        /* TABLE */
+        .table-container {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .table-header {
+            padding: 16px 20px;
+            background: var(--bg-main);
+            border-bottom: 1px solid var(--border);
+        }
+
+        .table-header h2 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            padding: 12px 16px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 12px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            background: var(--bg-main);
+            border-bottom: 1px solid var(--border);
+        }
+
+        td {
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            font-size: 13px;
+        }
+
+        tbody tr:hover {
+            background: var(--bg-main);
+        }
+
+        /* BADGES */
+        .badge {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge.danger { background: #fee2e2; color: #991b1b; }
+        .badge.success { background: #d1fae5; color: #065f46; }
+        .badge.info { background: #dbeafe; color: #1e40af; }
+
+        /* PRIORITY CARDS */
+        .priority-card {
+            background: var(--bg-main);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--warning);
+            border-radius: 8px;
+            padding: 14px;
+            transition: var(--transition);
+        }
+
+        .priority-card:hover {
+            box-shadow: var(--shadow-sm);
+        }
+
+        .priority-card.critical {
+            border-left-color: var(--danger);
+            background: #fef2f2;
+        }
+
+        .priority-card h4 {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        .priority-card-details {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .priority-card-detail {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .priority-card-label {
+            color: var(--text-secondary);
+        }
+
+        .priority-card-value {
+            font-weight: 600;
+        }
+
+        /* CARD */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        .card h2 {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+
+        /* CHECKBOX */
+        .checkbox-cell {
+            text-align: center;
+            width: 50px;
+        }
+
+        .part-checkbox,
+        #selectAllFacility {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        /* ORDER FLOATING BUTTON */
+        .order-floating-btn {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--success);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            border: none;
+            cursor: pointer;
+            font-size: 24px;
+            box-shadow: var(--shadow-lg);
+            transition: var(--transition);
+            z-index: 999;
+            display: none;
+        }
+
+        .order-floating-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 15px 30px rgba(16, 185, 129, 0.4);
+        }
+
+        .order-floating-btn.has-items {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .order-badge {
+            position: absolute;
+            top: -4px;
+            right: -4px;
+            background: var(--danger);
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            border: 3px solid white;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+
+        /* ORDER PANEL */
+        .order-panel {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            box-shadow: var(--shadow-lg);
+            min-width: 350px;
+            max-width: 450px;
+            max-height: 80vh;
+            z-index: 1000;
+            transition: var(--transition);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .order-panel.hidden {
+            transform: translateX(500px);
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .order-panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .order-panel-header h3 {
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .order-panel-close {
+            background: var(--bg-main);
+            border: none;
+            cursor: pointer;
+            font-size: 20px;
+            color: var(--text-secondary);
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+        }
+
+        .order-panel-close:hover {
+            background: var(--border);
+            color: var(--text-primary);
+        }
+
+        .order-list {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            max-height: 400px;
+        }
+
+        .order-item {
+            padding: 12px;
+            background: var(--bg-main);
+            border-radius: 8px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            transition: var(--transition);
+        }
+
+        .order-item:hover {
+            transform: translateX(-4px);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .order-item-name {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text-primary);
+        }
+
+        .order-item-qty {
+            background: var(--primary);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 12px;
+        }
+
+        .order-item-remove {
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            transition: var(--transition);
+        }
+
+        .order-item-remove:hover {
+            opacity: 0.8;
+        }
+
+        .order-summary {
+            padding: 12px;
+            background: var(--bg-main);
+            border-radius: 8px;
+            margin-bottom: 12px;
+            font-size: 13px;
+        }
+
+        .order-summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 6px;
+        }
+
+        .order-summary-row:last-child {
+            margin-bottom: 0;
+            padding-top: 6px;
+            border-top: 1px solid var(--border);
+            font-weight: 600;
+        }
+
+        .order-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .order-actions button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition);
+            font-size: 13px;
+        }
+
+        .btn-create-order {
+            background: var(--success);
+            color: white;
+        }
+
+        .btn-create-order:hover {
+            opacity: 0.9;
+        }
+
+        .btn-clear-order {
+            background: var(--bg-main);
+            color: var(--text-secondary);
+        }
+
+        .btn-clear-order:hover {
+            background: var(--border);
+        }
+
+        .empty-order {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+            font-size: 13px;
+        }
+
+        .empty-order::before {
+            content: '🛒';
+            display: block;
+            font-size: 3em;
+            margin-bottom: 10px;
+            opacity: 0.3;
+        }
+
+        /* UPLOAD */
+        .upload-section {
+            max-width: 800px;
+            margin: 60px auto;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 40px;
+            box-shadow: var(--shadow-md);
+        }
+
+        .file-input-button {
+            background: var(--primary);
+            color: white;
+            padding: 12px 32px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-block;
+        }
+
+        #fileInput { display: none; }
+        .hidden { display: none; }
+        
+        .view-section {
+            display: none;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .view-section.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @media (max-width: 1200px) {
+            .content-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            .main-content {
+                margin-left: 0;
+            }
+            .stats-grid,
+            .content-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar" style="display: none;">
+        <div class="sidebar-header">
+            <h1>📊 Sklad BRQ</h1>
+            <p>Analýza náhradních dílů</p>
+        </div>
+        <nav class="sidebar-nav">
+            <button class="nav-item active" data-role="overview">
+                <span>📊</span>
+                <span>Přehled</span>
+            </button>
+            <button class="nav-item" data-role="finance">
+                <span>💰</span>
+                <span>Finance</span>
+            </button>
+            <button class="nav-item" data-role="facility">
+                <span>🏢</span>
+                <span>Facility</span>
+            </button>
+            <button class="nav-item" data-role="tech">
+                <span>🔧</span>
+                <span>Technik</span>
+            </button>
+        </nav>
+    </aside>
+
+    <!-- UPLOAD SECTION -->
+    <div class="upload-section" id="uploadSection">
+        <h2>📁 Nahrajte Excel soubor</h2>
+        <p style="margin: 15px 0; color: var(--text-secondary);">Podporované formáty: .xlsx, .xls</p>
+        <div style="margin: 20px 0;">
+            <input type="file" id="fileInput" accept=".xlsx,.xls" />
+            <label for="fileInput" class="file-input-button">
+                🚀 Vybrat soubor
+            </label>
+        </div>
+        <div id="fileName" style="margin-top: 15px; color: var(--text-secondary); font-weight: 500;"></div>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main-content hidden" id="dashboardContent">
+        <div class="top-bar">
+            <h2 class="page-title" id="pageTitle">Přehled</h2>
+        </div>
+
+        <!-- OVERVIEW VIEW -->
+        <div class="view-section active" id="overviewView">
+            <!-- Alert -->
+            <div class="alert-box" id="urgentAlert">
+                <div>
+                    <h4>🚨 URGENTNÍ AKCE VYŽADOVÁNA</h4>
+                    <p id="urgentAlertMsg">Načítání...</p>
+                </div>
+                <button onclick="switchRole('facility')">Zobrazit detail →</button>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>Celkem Dílů</h3>
+                    <div class="value" id="totalParts">0</div>
+                </div>
+                <div class="stat-card warning">
+                    <h3>⚠️ Pod Minimem</h3>
+                    <div class="value" id="lowStock">0</div>
+                    <div class="mini-stat">
+                        <span>% z celku</span>
+                        <strong id="lowStockPercent">0%</strong>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <h3>✅ V Pořádku</h3>
+                    <div class="value" id="goodStock">0</div>
+                </div>
+                <div class="stat-card info">
+                    <h3>📦 Ø Min. Zásoba</h3>
+                    <div class="value" id="avgMinStock">0</div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="content-grid">
+                <div class="chart-card">
+                    <h2>📊 Stav Zásob</h2>
+                    <canvas id="stockChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>🏷️ Podle Kategorií</h2>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>🔧 Podle Technologií</h2>
+                    <canvas id="techChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-card" style="height: 350px; margin-bottom: 24px;">
+                <h2>🔥 Top 10 Problémových Dílů</h2>
+                <canvas id="problematicPartsChart"></canvas>
+            </div>
+
+            <!-- Controls -->
+            <div class="controls">
+                <input type="text" id="searchInput" placeholder="🔍 Vyhledat díl...">
+                <select id="categoryFilter">
+                    <option value="">Všechny kategorie</option>
+                </select>
+                <select id="techFilter">
+                    <option value="">Všechny technologie</option>
+                </select>
+                <select id="stockFilter">
+                    <option value="">Všechny stavy</option>
+                    <option value="low">Pod minimem</option>
+                    <option value="good">V pořádku</option>
+                </select>
+                <button onclick="exportToCSV()">💾 Export CSV</button>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>📋 Přehled Náhradních Dílů</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Dílu</th>
+                                <th>Technologie</th>
+                                <th>Kategorie</th>
+                                <th>Min. Zásoba</th>
+                                <th>Aktuální</th>
+                                <th>Stav</th>
+                                <th>Deficit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- FINANCE VIEW -->
+        <div class="view-section" id="financeView">
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card info">
+                    <h3>💵 Hodnota Zásob</h3>
+                    <div class="value" id="finTotalValue">0 Kč</div>
+                    <div class="mini-stat">
+                        <span>Ø cena/díl</span>
+                        <strong id="finAvgPrice">0 Kč</strong>
+                    </div>
+                </div>
+                <div class="stat-card warning">
+                    <h3>🔴 Náklady Doplnění</h3>
+                    <div class="value" id="finRefillCost">0 Kč</div>
+                    <div class="mini-stat">
+                        <span>Dílů k doplnění</span>
+                        <strong id="finRefillCount">0</strong>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <h3>📊 ABC Analýza</h3>
+                    <div class="value" id="finABCValue">A: 0%</div>
+                    <div class="mini-stat">
+                        <span>B díly</span>
+                        <strong id="finABCB">0%</strong>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <h3>💹 Efektivita</h3>
+                    <div class="value" id="finEfficiency">-</div>
+                    <div class="mini-stat">
+                        <span>Status</span>
+                        <strong>-</strong>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="content-grid">
+                <div class="chart-card">
+                    <h2>💰 Náklady podle Kategorií</h2>
+                    <canvas id="finCostByCategoryChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>📊 ABC Analýza</h2>
+                    <canvas id="finABCChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>📉 Top 10 Nákladů</h2>
+                    <canvas id="finTopCostChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>💼 Finanční Přehled Dílů</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Dílu</th>
+                                <th>Kategorie</th>
+                                <th>Cena/ks</th>
+                                <th>Hodnota Zásob</th>
+                                <th>Deficit</th>
+                                <th>Náklady Doplnění</th>
+                                <th>ABC</th>
+                            </tr>
+                        </thead>
+                        <tbody id="finTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- FACILITY VIEW -->
+        <div class="view-section" id="facilityView">
+            <!-- Alert -->
+            <div class="alert-box">
+                <div>
+                    <h4 id="facilityAlertTitle">⚠️ URGENTNÍ AKCE VYŽADOVÁNA</h4>
+                    <p id="facilityUrgentMsg">Načítání...</p>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="stats-grid">
+                <div class="stat-card warning">
+                    <h3>🚨 Kritické Díly</h3>
+                    <div class="value" id="facilCritical">0</div>
+                </div>
+                <div class="stat-card info">
+                    <h3>📋 Čeká Objednání</h3>
+                    <div class="value" id="facilPending">0</div>
+                </div>
+                <div class="stat-card">
+                    <h3>🔄 Míra Doplňování</h3>
+                    <div class="value" id="facilRefillRate">0%</div>
+                    <div style="width: 100%; height: 6px; background: var(--border); border-radius: 3px; margin-top: 8px; overflow: hidden;">
+                        <div id="facilRefillProgress" style="height: 100%; background: var(--primary); width: 0%; transition: var(--transition);"></div>
+                    </div>
+                </div>
+                <div class="stat-card success">
+                    <h3>✅ Připravenost</h3>
+                    <div class="value" id="facilReadiness">0%</div>
+                </div>
+            </div>
+
+            <!-- Order Plan -->
+            <div class="card">
+                <h2>📋 Plán Objednávek - Top Priority</h2>
+                <div id="facilityOrderPlan" style="display: grid; gap: 12px;"></div>
+            </div>
+
+            <!-- Charts -->
+            <div class="content-grid">
+                <div class="chart-card">
+                    <h2>🏢 Stav podle Technologií</h2>
+                    <canvas id="facilTechStatusChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>📊 Kritičnost Kategorií</h2>
+                    <canvas id="facilCategoryRiskChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>⏱️ Urgence</h2>
+                    <canvas id="facilUrgencyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>🚨 Kritické Díly - Akční Plán</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="checkbox-cell">
+                                    <input type="checkbox" id="selectAllFacility" onchange="selectAllFacilityParts(this.checked)">
+                                </th>
+                                <th>Priorita</th>
+                                <th>ID Dílu</th>
+                                <th>Technologie</th>
+                                <th>Kategorie</th>
+                                <th>Aktuální</th>
+                                <th>Minimum</th>
+                                <th>K Objednání</th>
+                            </tr>
+                        </thead>
+                        <tbody id="facilTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TECH VIEW -->
+        <div class="view-section" id="techView">
+            <!-- Search -->
+            <div class="controls">
+                <input type="text" id="techSearchInput" placeholder="🔍 Rychlé vyhledání dílu (sken QR / název)...">
+                <select id="techCategoryFilter">
+                    <option value="">Všechny kategorie</option>
+                </select>
+                <button onclick="showAllParts()">📋 Zobrazit vše</button>
+            </div>
+
+            <!-- Part Detail -->
+            <div id="techPartDetail" style="display: none; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 24px; border-left: 4px solid var(--primary);">
+                <h3 id="techPartName" style="font-size: 16px; font-weight: 600; margin-bottom: 12px;">-</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; font-size: 13px; margin-bottom: 16px;">
+                    <div>
+                        <div style="color: var(--text-secondary); margin-bottom: 4px;">Technologie:</div>
+                        <div style="font-weight: 600;" id="techPartTech">-</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-secondary); margin-bottom: 4px;">Kategorie:</div>
+                        <div style="font-weight: 600;" id="techPartCategory">-</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-secondary); margin-bottom: 4px;">Aktuální zásoba:</div>
+                        <div style="font-weight: 600;" id="techPartStock">-</div>
+                    </div>
+                    <div>
+                        <div style="color: var(--text-secondary); margin-bottom: 4px;">Min. zásoba:</div>
+                        <div style="font-weight: 600;" id="techPartMin">-</div>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="quick-action-btn" onclick="techIssue()" style="flex: 1;">📤 Vydat díl</button>
+                    <button class="quick-action-btn" onclick="techReceive()" style="flex: 1;">📥 Přijmout díl</button>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="content-grid">
+                <div class="chart-card">
+                    <h2>📊 Rychlý Přehled Stavu</h2>
+                    <canvas id="techQuickStatusChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>🔧 Podle Kategorií</h2>
+                    <canvas id="techMyCategoriesChart"></canvas>
+                </div>
+                <div class="chart-card">
+                    <h2>📈 Aktivita</h2>
+                    <canvas id="techActivityChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Table -->
+            <div class="table-container">
+                <div class="table-header">
+                    <h2>🔧 Seznam Dílů - Technický Přehled</h2>
+                </div>
+                <div style="overflow-x: auto;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID Dílu</th>
+                                <th>Kategorie</th>
+                                <th>Technologie</th>
+                                <th>Stav Zásob</th>
+                                <th>Poslední Výdej</th>
+                                <th>Poslední Příjem</th>
+                                <th>Akce</th>
+                            </tr>
+                        </thead>
+                        <tbody id="techTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ORDER FLOATING BUTTON -->
+    <button class="order-floating-btn" id="orderFloatingBtn" onclick="toggleOrderPanel()">
+        🛒
+        <span class="order-badge" id="orderBadge">0</span>
+    </button>
+
+    <!-- ORDER PANEL -->
+    <div class="order-panel hidden" id="orderPanel">
+        <div class="order-panel-header">
+            <h3>🛒 Objednávka</h3>
+            <button class="order-panel-close" onclick="toggleOrderPanel()">✕</button>
+        </div>
+        <div class="order-list" id="orderList">
+            <div class="empty-order">
+                Košík je prázdný
+            </div>
+        </div>
+        <div class="order-summary" id="orderSummary" style="display: none;">
+            <div class="order-summary-row">
+                <span>Celkem položek:</span>
+                <strong id="orderTotalItems">0</strong>
+            </div>
+            <div class="order-summary-row">
+                <span>Celkem kusů:</span>
+                <strong id="orderTotalPieces">0</strong>
+            </div>
+        </div>
+        <div class="order-actions">
+            <button class="btn-create-order" onclick="createOrderExcel()">
+                📄 Vytvořit Excel
+            </button>
+            <button class="btn-clear-order" onclick="clearOrder()">
+                🗑️ Vymazat
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let rawData = [];
+        let filteredData = [];
+        let charts = {};
+        let currentRole = 'overview';
+
+        document.getElementById('fileInput').addEventListener('change', handleFileUpload);
+        document.getElementById('searchInput').addEventListener('input', applyFilters);
+        document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+        document.getElementById('techFilter').addEventListener('change', applyFilters);
+        document.getElementById('stockFilter').addEventListener('change', applyFilters);
+
+        // Nav switching
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            btn.addEventListener('click', function() {
+                switchRole(this.dataset.role);
+            });
+        });
+
+        function switchRole(role) {
+            currentRole = role;
+            document.querySelectorAll('.nav-item').forEach(btn => btn.classList.remove('active'));
+            document.querySelector(`[data-role="${role}"]`).classList.add('active');
+            document.querySelectorAll('.view-section').forEach(s => s.classList.remove('active'));
+            document.getElementById(`${role}View`).classList.add('active');
+            
+            const titles = {
+                overview: 'Přehled',
+                finance: 'Finanční Analýza',
+                facility: 'Facility Management',
+                tech: 'Technický Přehled'
+            };
+            document.getElementById('pageTitle').textContent = titles[role];
+
+            // Update specific views
+            if (role === 'finance') updateFinanceView();
+            if (role === 'facility') updateFacilityView();
+            if (role === 'tech') updateTechView();
+        }
+
+        // FINANCE VIEW FUNCTIONS
+        function updateFinanceView() {
+            const dataWithPrices = rawData.map(item => ({
+                ...item,
+                estimatedPrice: estimatePrice(item)
+            }));
+
+            const totalValue = dataWithPrices.reduce((sum, item) => 
+                sum + (item.AKTUALNI_ZASOBA * item.estimatedPrice), 0);
+            
+            const refillData = dataWithPrices.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA);
+            const refillCost = refillData.reduce((sum, item) => 
+                sum + ((item.MIN_ZASOBA - item.AKTUALNI_ZASOBA) * item.estimatedPrice), 0);
+            
+            const avgPrice = totalValue / rawData.reduce((sum, item) => sum + item.AKTUALNI_ZASOBA, 0);
+
+            document.getElementById('finTotalValue').textContent = formatCurrency(totalValue);
+            document.getElementById('finAvgPrice').textContent = formatCurrency(avgPrice);
+            document.getElementById('finRefillCost').textContent = formatCurrency(refillCost);
+            document.getElementById('finRefillCount').textContent = refillData.length;
+
+            // ABC analysis
+            const sortedByValue = dataWithPrices
+                .map(item => ({ ...item, totalValue: item.AKTUALNI_ZASOBA * item.estimatedPrice }))
+                .sort((a, b) => b.totalValue - a.totalValue);
+
+            let cumValue = 0;
+            const totalVal = sortedByValue.reduce((sum, item) => sum + item.totalValue, 0);
+            let aCount = 0, bCount = 0;
+
+            sortedByValue.forEach(item => {
+                cumValue += item.totalValue;
+                const percentage = (cumValue / totalVal) * 100;
+                if (percentage <= 80) aCount++;
+                else if (percentage <= 95) bCount++;
+            });
+
+            const aPercent = ((aCount / sortedByValue.length) * 100).toFixed(1);
+            const bPercent = ((bCount / sortedByValue.length) * 100).toFixed(1);
+
+            document.getElementById('finABCValue').textContent = `A: ${aPercent}%`;
+            document.getElementById('finABCB').textContent = `${bPercent}%`;
+
+            createFinanceCharts(dataWithPrices);
+            updateFinanceTable(dataWithPrices);
+        }
+
+        function estimatePrice(item) {
+            const name = (item.ID_DILU || '').toLowerCase();
+            if (name.includes('elektropřevodovka')) return 15000 + Math.random() * 10000;
+            if (name.includes('rollerdrive')) return 8000 + Math.random() * 5000;
+            if (name.includes('váleček')) return 500 + Math.random() * 1000;
+            if (name.includes('řemen')) return 200 + Math.random() * 500;
+            return 500 + Math.random() * 2000;
+        }
+
+        function formatCurrency(value) {
+            return new Intl.NumberFormat('cs-CZ', {
+                style: 'decimal',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(value) + ' Kč';
+        }
+
+        function createFinanceCharts(dataWithPrices) {
+            // Cost by Category
+            const categoryData = {};
+            dataWithPrices.forEach(item => {
+                const cat = item.KATEGORIE || 'Ostatní';
+                if (!categoryData[cat]) categoryData[cat] = 0;
+                categoryData[cat] += item.AKTUALNI_ZASOBA * item.estimatedPrice;
+            });
+
+            if (charts.finCostByCategory) charts.finCostByCategory.destroy();
+            const ctx1 = document.getElementById('finCostByCategoryChart').getContext('2d');
+            charts.finCostByCategory = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(categoryData),
+                    datasets: [{
+                        label: 'Hodnota (Kč)',
+                        data: Object.values(categoryData),
+                        backgroundColor: '#2563eb',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // ABC Chart
+            const sortedByValue = dataWithPrices
+                .map(item => ({ id: item.ID_DILU, value: item.AKTUALNI_ZASOBA * item.estimatedPrice }))
+                .sort((a, b) => b.value - a.value)
+                .slice(0, 15);
+
+            if (charts.finABC) charts.finABC.destroy();
+            const ctx2 = document.getElementById('finABCChart').getContext('2d');
+            charts.finABC = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: sortedByValue.map((_, i) => `${i + 1}`),
+                    datasets: [{
+                        label: 'Hodnota (Kč)',
+                        data: sortedByValue.map(item => item.value),
+                        backgroundColor: sortedByValue.map((_, i) => 
+                            i < 3 ? '#ef4444' : i < 8 ? '#f59e0b' : '#10b981'
+                        ),
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Top Cost to Refill
+            const topCostData = dataWithPrices
+                .filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA)
+                .map(item => ({
+                    id: item.ID_DILU,
+                    cost: (item.MIN_ZASOBA - item.AKTUALNI_ZASOBA) * item.estimatedPrice
+                }))
+                .sort((a, b) => b.cost - a.cost)
+                .slice(0, 10);
+
+            if (charts.finTopCost) charts.finTopCost.destroy();
+            const ctx3 = document.getElementById('finTopCostChart').getContext('2d');
+            charts.finTopCost = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    labels: topCostData.map(item => item.id.substring(0, 20) + '...'),
+                    datasets: [{
+                        label: 'Náklady (Kč)',
+                        data: topCostData.map(item => item.cost),
+                        backgroundColor: '#ef4444',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { x: { beginAtZero: true } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateFinanceTable(dataWithPrices) {
+            const tbody = document.getElementById('finTableBody');
+            tbody.innerHTML = '';
+
+            const sorted = dataWithPrices
+                .map(item => ({
+                    ...item,
+                    totalValue: item.AKTUALNI_ZASOBA * item.estimatedPrice
+                }))
+                .sort((a, b) => b.totalValue - a.totalValue)
+                .slice(0, 50);
+
+            sorted.forEach((item, index) => {
+                const deficit = Math.max(0, item.MIN_ZASOBA - item.AKTUALNI_ZASOBA);
+                const refillCost = deficit * item.estimatedPrice;
+                const abc = index < 3 ? 'A' : index < 10 ? 'B' : 'C';
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.ID_DILU || '-'}</td>
+                    <td>${item.KATEGORIE || '-'}</td>
+                    <td>${formatCurrency(item.estimatedPrice)}</td>
+                    <td>${formatCurrency(item.totalValue)}</td>
+                    <td><strong>${deficit > 0 ? deficit + ' ks' : '-'}</strong></td>
+                    <td><strong>${refillCost > 0 ? formatCurrency(refillCost) : '-'}</strong></td>
+                    <td><span class="badge ${abc === 'A' ? 'danger' : abc === 'B' ? 'warning' : 'success'}">${abc}</span></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function handleFileUpload(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            document.getElementById('fileName').innerHTML = `<div>Načítání souboru: ${file.name}...</div>`;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    
+                    let targetSheet;
+                    if (workbook.SheetNames.includes('Inventář')) {
+                        targetSheet = workbook.Sheets['Inventář'];
+                    } else {
+                        targetSheet = workbook.Sheets[workbook.SheetNames[0]];
+                    }
+                    
+                    const jsonData = XLSX.utils.sheet_to_json(targetSheet);
+                    
+                    if (jsonData.length === 0) {
+                        alert('⚠️ Soubor neobsahuje žádná data!');
+                        return;
+                    }
+
+                    rawData = jsonData;
+                    filteredData = jsonData;
+                    
+                    document.getElementById('uploadSection').classList.add('hidden');
+                    document.getElementById('dashboardContent').classList.remove('hidden');
+                    document.getElementById('sidebar').style.display = 'block';
+                    
+                    initializeDashboard();
+                } catch (error) {
+                    alert('Chyba při načítání: ' + error.message);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function initializeDashboard() {
+            populateFilters();
+            updateStats();
+            createCharts();
+            updateTable();
+        }
+
+        function populateFilters() {
+            const categories = [...new Set(rawData.map(item => item.KATEGORIE).filter(Boolean))];
+            const categoryFilter = document.getElementById('categoryFilter');
+            categoryFilter.innerHTML = '<option value="">Všechny kategorie</option>';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categoryFilter.appendChild(option);
+            });
+
+            const technologies = [...new Set(rawData.map(item => item.TECHNOLOGIE).filter(Boolean))];
+            const techFilter = document.getElementById('techFilter');
+            techFilter.innerHTML = '<option value="">Všechny technologie</option>';
+            technologies.forEach(tech => {
+                const option = document.createElement('option');
+                option.value = tech;
+                option.textContent = tech;
+                techFilter.appendChild(option);
+            });
+        }
+
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const categoryFilter = document.getElementById('categoryFilter').value;
+            const techFilter = document.getElementById('techFilter').value;
+            const stockFilter = document.getElementById('stockFilter').value;
+
+            filteredData = rawData.filter(item => {
+                const matchesSearch = !searchTerm || 
+                    (item.ID_DILU && item.ID_DILU.toString().toLowerCase().includes(searchTerm));
+                const matchesCategory = !categoryFilter || item.KATEGORIE === categoryFilter;
+                const matchesTech = !techFilter || item.TECHNOLOGIE === techFilter;
+                
+                let matchesStock = true;
+                if (stockFilter === 'low') {
+                    matchesStock = item.AKTUALNI_ZASOBA < item.MIN_ZASOBA;
+                } else if (stockFilter === 'good') {
+                    matchesStock = item.AKTUALNI_ZASOBA >= item.MIN_ZASOBA;
+                }
+
+                return matchesSearch && matchesCategory && matchesTech && matchesStock;
+            });
+
+            updateStats();
+            updateCharts();
+            updateTable();
+        }
+
+        function updateStats() {
+            const total = filteredData.length;
+            const lowStock = filteredData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA).length;
+            const goodStock = total - lowStock;
+            const avgMinStock = filteredData.reduce((sum, item) => sum + (item.MIN_ZASOBA || 0), 0) / total;
+            const lowStockPercent = total > 0 ? ((lowStock / total) * 100).toFixed(1) : 0;
+
+            document.getElementById('totalParts').textContent = total;
+            document.getElementById('lowStock').textContent = lowStock;
+            document.getElementById('lowStockPercent').textContent = lowStockPercent + '%';
+            document.getElementById('goodStock').textContent = goodStock;
+            document.getElementById('avgMinStock').textContent = avgMinStock.toFixed(1);
+
+            updateUrgentAlert();
+        }
+
+        function updateUrgentAlert() {
+            const critical = rawData.filter(item => item.AKTUALNI_ZASOBA === 0);
+            const msg = document.getElementById('urgentAlertMsg');
+            
+            if (critical.length > 0) {
+                msg.textContent = `${critical.length} dílů má NULOVOU zásobu! Okamžitá objednávka nutná.`;
+            } else {
+                const low = rawData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA);
+                if (low.length > 0) {
+                    msg.textContent = `${low.length} dílů je pod minimální zásobou.`;
+                    document.getElementById('urgentAlert').style.background = '#fffbeb';
+                    document.getElementById('urgentAlert').style.borderLeftColor = 'var(--warning)';
+                } else {
+                    msg.textContent = 'Všechny díly jsou na optimální úrovni!';
+                    document.getElementById('urgentAlert').style.background = '#f0fdf4';
+                    document.getElementById('urgentAlert').style.borderLeftColor = 'var(--success)';
+                }
+            }
+        }
+
+        function createCharts() {
+            // Problematic Parts Chart
+            const problematic = filteredData
+                .filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA)
+                .map(item => ({
+                    name: item.ID_DILU,
+                    deficit: item.MIN_ZASOBA - item.AKTUALNI_ZASOBA
+                }))
+                .sort((a, b) => b.deficit - a.deficit)
+                .slice(0, 10);
+
+            if (charts.problematic) charts.problematic.destroy();
+            const ctx1 = document.getElementById('problematicPartsChart').getContext('2d');
+            charts.problematic = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: problematic.map(i => i.name.substring(0, 30) + '...'),
+                    datasets: [{
+                        label: 'Deficit (ks)',
+                        data: problematic.map(i => i.deficit),
+                        backgroundColor: '#ef4444',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { display: false } }
+                }
+            });
+
+            // Stock Chart
+            const low = filteredData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA).length;
+            const good = filteredData.length - low;
+
+            if (charts.stock) charts.stock.destroy();
+            const ctx2 = document.getElementById('stockChart').getContext('2d');
+            charts.stock = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pod minimem', 'V pořádku'],
+                    datasets: [{
+                        data: [low, good],
+                        backgroundColor: ['#ef4444', '#10b981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Category Chart
+            const catData = {};
+            filteredData.forEach(item => {
+                const cat = item.KATEGORIE || 'Ostatní';
+                catData[cat] = (catData[cat] || 0) + 1;
+            });
+
+            if (charts.category) charts.category.destroy();
+            const ctx3 = document.getElementById('categoryChart').getContext('2d');
+            charts.category = new Chart(ctx3, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(catData),
+                    datasets: [{
+                        data: Object.values(catData),
+                        backgroundColor: ['#2563eb', '#8b5cf6', '#ec4899']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Tech Chart
+            const techData = {};
+            filteredData.forEach(item => {
+                techData[item.TECHNOLOGIE] = (techData[item.TECHNOLOGIE] || 0) + 1;
+            });
+
+            if (charts.tech) charts.tech.destroy();
+            const ctx4 = document.getElementById('techChart').getContext('2d');
+            charts.tech = new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(techData),
+                    datasets: [{
+                        label: 'Počet dílů',
+                        data: Object.values(techData),
+                        backgroundColor: '#2563eb',
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { y: { beginAtZero: true } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function updateCharts() {
+            Object.values(charts).forEach(chart => chart.destroy());
+            charts = {};
+            createCharts();
+        }
+
+        function updateTable() {
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = '';
+
+            filteredData.forEach(item => {
+                const deficit = Math.max(0, item.MIN_ZASOBA - item.AKTUALNI_ZASOBA);
+                const isLow = item.AKTUALNI_ZASOBA < item.MIN_ZASOBA;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.ID_DILU || '-'}</td>
+                    <td><span class="badge info">${item.TECHNOLOGIE || '-'}</span></td>
+                    <td>${item.KATEGORIE || '-'}</td>
+                    <td>${item.MIN_ZASOBA || 0}</td>
+                    <td>${item.AKTUALNI_ZASOBA || 0}</td>
+                    <td><span class="badge ${isLow ? 'danger' : 'success'}">
+                        ${isLow ? '⚠️ Pod minimem' : '✅ OK'}
+                    </span></td>
+                    <td><strong>${deficit > 0 ? deficit + ' ks' : '-'}</strong></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // FACILITY VIEW FUNCTIONS
+        function updateFacilityView() {
+            const critical = rawData.filter(item => item.AKTUALNI_ZASOBA === 0).length;
+            const pending = rawData.filter(item => item.DOPLNIT_KDY === true).length;
+            const needRefill = rawData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA).length;
+            const refillRate = ((needRefill / rawData.length) * 100).toFixed(1);
+            const ready = rawData.filter(item => item.AKTUALNI_ZASOBA >= item.MIN_ZASOBA).length;
+            const readiness = ((ready / rawData.length) * 100).toFixed(1);
+
+            document.getElementById('facilCritical').textContent = critical;
+            document.getElementById('facilPending').textContent = pending;
+            document.getElementById('facilRefillRate').textContent = refillRate + '%';
+            document.getElementById('facilRefillProgress').style.width = refillRate + '%';
+            document.getElementById('facilReadiness').textContent = readiness + '%';
+
+            const urgentMsg = critical > 0 
+                ? `${critical} dílů má nulovou zásobu! Okamžitá akce nutná.`
+                : needRefill > 0
+                ? `${needRefill} dílů vyžaduje doplnění zásob.`
+                : 'Všechny díly jsou na dostatečné úrovni.';
+            document.getElementById('facilityUrgentMsg').textContent = urgentMsg;
+
+            createFacilityOrderPlan();
+            createFacilityCharts();
+            updateFacilityTable();
+        }
+
+        function createFacilityOrderPlan() {
+            const planDiv = document.getElementById('facilityOrderPlan');
+            const criticalParts = rawData
+                .filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA)
+                .sort((a, b) => {
+                    if (a.AKTUALNI_ZASOBA === 0 && b.AKTUALNI_ZASOBA !== 0) return -1;
+                    if (b.AKTUALNI_ZASOBA === 0 && a.AKTUALNI_ZASOBA !== 0) return 1;
+                    return (a.AKTUALNI_ZASOBA / a.MIN_ZASOBA) - (b.AKTUALNI_ZASOBA / b.MIN_ZASOBA);
+                })
+                .slice(0, 5);
+
+            let html = '';
+            criticalParts.forEach(item => {
+                const priority = item.AKTUALNI_ZASOBA === 0 ? '🔴 URGENTNÍ' : '🟡 VYSOKÁ';
+                const isCritical = item.AKTUALNI_ZASOBA === 0;
+                html += `
+                    <div class="priority-card ${isCritical ? 'critical' : ''}">
+                        <h4>${priority} - ${item.ID_DILU.substring(0, 50)}...</h4>
+                        <div class="priority-card-details">
+                            <div class="priority-card-detail">
+                                <span class="priority-card-label">Technologie:</span>
+                                <span class="priority-card-value">${item.TECHNOLOGIE}</span>
+                            </div>
+                            <div class="priority-card-detail">
+                                <span class="priority-card-label">K objednání:</span>
+                                <span class="priority-card-value">${item.MIN_ZASOBA - item.AKTUALNI_ZASOBA} ks</span>
+                            </div>
+                            <div class="priority-card-detail">
+                                <span class="priority-card-label">Status:</span>
+                                <span class="priority-card-value">${item.DOPLNIT_KDY ? '✅ Objednáno' : '⏳ Čeká'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            planDiv.innerHTML = html || '<p style="text-align: center; color: var(--text-secondary);">Žádné díly nevyžadují okamžitou akci.</p>';
+        }
+
+        function createFacilityCharts() {
+            // Tech Status Chart
+            const techData = {};
+            rawData.forEach(item => {
+                if (!techData[item.TECHNOLOGIE]) techData[item.TECHNOLOGIE] = { low: 0, good: 0 };
+                if (item.AKTUALNI_ZASOBA < item.MIN_ZASOBA) {
+                    techData[item.TECHNOLOGIE].low++;
+                } else {
+                    techData[item.TECHNOLOGIE].good++;
+                }
+            });
+
+            if (charts.facilTechStatus) charts.facilTechStatus.destroy();
+            const ctx1 = document.getElementById('facilTechStatusChart').getContext('2d');
+            charts.facilTechStatus = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(techData),
+                    datasets: [
+                        {
+                            label: 'Pod minimem',
+                            data: Object.values(techData).map(d => d.low),
+                            backgroundColor: '#ef4444'
+                        },
+                        {
+                            label: 'V pořádku',
+                            data: Object.values(techData).map(d => d.good),
+                            backgroundColor: '#10b981'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    scales: { x: { stacked: true }, y: { stacked: true, beginAtZero: true } }
+                }
+            });
+
+            // Category Risk
+            const categoryRisk = {};
+            rawData.forEach(item => {
+                const cat = item.KATEGORIE || 'Ostatní';
+                if (!categoryRisk[cat]) categoryRisk[cat] = 0;
+                if (item.AKTUALNI_ZASOBA < item.MIN_ZASOBA) categoryRisk[cat]++;
+            });
+
+            if (charts.facilCategoryRisk) charts.facilCategoryRisk.destroy();
+            const ctx2 = document.getElementById('facilCategoryRiskChart').getContext('2d');
+            charts.facilCategoryRisk = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(categoryRisk),
+                    datasets: [{
+                        data: Object.values(categoryRisk),
+                        backgroundColor: ['#ef4444', '#f59e0b', '#eab308']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Urgency
+            const urgency = {
+                'Kritické (0 ks)': rawData.filter(i => i.AKTUALNI_ZASOBA === 0).length,
+                'Vysoká (< 50%)': rawData.filter(i => i.AKTUALNI_ZASOBA > 0 && i.AKTUALNI_ZASOBA < i.MIN_ZASOBA * 0.5).length,
+                'Střední (< 100%)': rawData.filter(i => i.AKTUALNI_ZASOBA >= i.MIN_ZASOBA * 0.5 && i.AKTUALNI_ZASOBA < i.MIN_ZASOBA).length
+            };
+
+            if (charts.facilUrgency) charts.facilUrgency.destroy();
+            const ctx3 = document.getElementById('facilUrgencyChart').getContext('2d');
+            charts.facilUrgency = new Chart(ctx3, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(urgency),
+                    datasets: [{
+                        data: Object.values(urgency),
+                        backgroundColor: ['#ef4444', '#f59e0b', '#eab308']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function updateFacilityTable() {
+            const tbody = document.getElementById('facilTableBody');
+            tbody.innerHTML = '';
+
+            const criticalParts = rawData
+                .filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA)
+                .sort((a, b) => {
+                    if (a.AKTUALNI_ZASOBA === 0 && b.AKTUALNI_ZASOBA !== 0) return -1;
+                    if (b.AKTUALNI_ZASOBA === 0 && a.AKTUALNI_ZASOBA !== 0) return 1;
+                    return (a.AKTUALNI_ZASOBA / a.MIN_ZASOBA) - (b.AKTUALNI_ZASOBA / b.MIN_ZASOBA);
+                });
+
+            criticalParts.forEach(item => {
+                const toOrder = item.MIN_ZASOBA - item.AKTUALNI_ZASOBA;
+                const priority = item.AKTUALNI_ZASOBA === 0 ? '🔴 URGENTNÍ' : 
+                                 item.AKTUALNI_ZASOBA / item.MIN_ZASOBA < 0.5 ? '🟡 VYSOKÁ' : '🟢 STŘEDNÍ';
+                
+                const partId = `part_${item.ID_DILU}`;
+                const isInOrder = orderItems.has(partId);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="checkbox-cell">
+                        <input type="checkbox" 
+                               class="part-checkbox" 
+                               data-part-id="${partId}"
+                               ${isInOrder ? 'checked' : ''}
+                               onchange="togglePartInOrder('${partId}', '${item.ID_DILU}', '${item.TECHNOLOGIE}', '${item.KATEGORIE}', ${toOrder})">
+                    </td>
+                    <td><strong>${priority}</strong></td>
+                    <td>${item.ID_DILU || '-'}</td>
+                    <td><span class="badge info">${item.TECHNOLOGIE || '-'}</span></td>
+                    <td>${item.KATEGORIE || '-'}</td>
+                    <td><strong>${item.AKTUALNI_ZASOBA}</strong></td>
+                    <td>${item.MIN_ZASOBA}</td>
+                    <td><strong style="color: var(--danger);">${toOrder} ks</strong></td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        function selectAllFacilityParts(checked) {
+            document.querySelectorAll('#facilTableBody .part-checkbox').forEach(cb => {
+                cb.checked = checked;
+                
+                if (checked) {
+                    const partId = cb.dataset.partId;
+                    const row = cb.closest('tr');
+                    const partName = row.cells[2].textContent;
+                    const tech = row.cells[3].textContent;
+                    const category = row.cells[4].textContent;
+                    const quantity = parseInt(row.cells[7].textContent);
+                    
+                    if (!orderItems.has(partId)) {
+                        orderItems.set(partId, { name: partName, tech, category, quantity });
+                    }
+                } else {
+                    const partId = cb.dataset.partId;
+                    orderItems.delete(partId);
+                }
+            });
+            updateOrderUI();
+        }
+
+        // TECH VIEW FUNCTIONS
+        function updateTechView() {
+            createTechCharts();
+            updateTechTable();
+            
+            // Populate category filter
+            const categories = [...new Set(rawData.map(item => item.KATEGORIE).filter(Boolean))];
+            const techCategoryFilter = document.getElementById('techCategoryFilter');
+            techCategoryFilter.innerHTML = '<option value="">Všechny kategorie</option>';
+            categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                techCategoryFilter.appendChild(option);
+            });
+        }
+
+        function techSearch() {
+            const searchTerm = document.getElementById('techSearchInput').value.toLowerCase();
+            if (searchTerm.length < 2) {
+                document.getElementById('techPartDetail').style.display = 'none';
+                return;
+            }
+
+            const found = rawData.find(item => 
+                (item.ID_DILU || '').toLowerCase().includes(searchTerm)
+            );
+
+            if (found) {
+                document.getElementById('techPartDetail').style.display = 'block';
+                document.getElementById('techPartName').textContent = found.ID_DILU || '-';
+                document.getElementById('techPartTech').textContent = found.TECHNOLOGIE || '-';
+                document.getElementById('techPartCategory').textContent = found.KATEGORIE || '-';
+                document.getElementById('techPartStock').textContent = found.AKTUALNI_ZASOBA || 0;
+                document.getElementById('techPartMin').textContent = found.MIN_ZASOBA || 0;
+            } else {
+                document.getElementById('techPartDetail').style.display = 'none';
+            }
+        }
+
+        function showAllParts() {
+            document.getElementById('techSearchInput').value = '';
+            document.getElementById('techPartDetail').style.display = 'none';
+            updateTechTable();
+        }
+
+        function techIssue() {
+            alert('🔧 Funkce výdeje dílu - implementováno v produkční verzi');
+        }
+
+        function techReceive() {
+            alert('🔧 Funkce příjmu dílu - implementováno v produkční verzi');
+        }
+
+        function createTechCharts() {
+            const lowStock = rawData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA).length;
+            const goodStock = rawData.length - lowStock;
+
+            if (charts.techQuickStatus) charts.techQuickStatus.destroy();
+            const ctx1 = document.getElementById('techQuickStatusChart').getContext('2d');
+            charts.techQuickStatus = new Chart(ctx1, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Pod minimem', 'V pořádku'],
+                    datasets: [{
+                        data: [lowStock, goodStock],
+                        backgroundColor: ['#ef4444', '#10b981']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            const categoryFilter = document.getElementById('techCategoryFilter').value;
+            const filteredByCategory = categoryFilter 
+                ? rawData.filter(item => item.KATEGORIE === categoryFilter)
+                : rawData;
+
+            const categoryData = {};
+            filteredByCategory.forEach(item => {
+                const cat = item.KATEGORIE || 'Ostatní';
+                categoryData[cat] = (categoryData[cat] || 0) + 1;
+            });
+
+            if (charts.techMyCategories) charts.techMyCategories.destroy();
+            const ctx2 = document.getElementById('techMyCategoriesChart').getContext('2d');
+            charts.techMyCategories = new Chart(ctx2, {
+                type: 'pie',
+                data: {
+                    labels: Object.keys(categoryData),
+                    datasets: [{
+                        data: Object.values(categoryData),
+                        backgroundColor: ['#2563eb', '#8b5cf6', '#ec4899']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+
+            // Activity chart
+            const hasActivity = rawData.filter(item => item.VYSKLADNIL || item.ZASKLADNIL).length;
+            const noActivity = rawData.length - hasActivity;
+
+            if (charts.techActivity) charts.techActivity.destroy();
+            const ctx3 = document.getElementById('techActivityChart').getContext('2d');
+            charts.techActivity = new Chart(ctx3, {
+                type: 'doughnut',
+                data: {
+                    labels: ['S aktivitou', 'Bez aktivity'],
+                    datasets: [{
+                        data: [hasActivity, noActivity],
+                        backgroundColor: ['#2563eb', '#94a3b8']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: { legend: { position: 'bottom' } }
+                }
+            });
+        }
+
+        function updateTechTable() {
+            const tbody = document.getElementById('techTableBody');
+            tbody.innerHTML = '';
+
+            const categoryFilter = document.getElementById('techCategoryFilter').value;
+            const filteredData = categoryFilter 
+                ? rawData.filter(item => item.KATEGORIE === categoryFilter)
+                : rawData;
+
+            filteredData.slice(0, 50).forEach(item => {
+                const stockStatus = item.AKTUALNI_ZASOBA < item.MIN_ZASOBA 
+                    ? `⚠️ ${item.AKTUALNI_ZASOBA}/${item.MIN_ZASOBA}` 
+                    : `✅ ${item.AKTUALNI_ZASOBA}/${item.MIN_ZASOBA}`;
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${item.ID_DILU || '-'}</td>
+                    <td><span class="badge info">${item.KATEGORIE || '-'}</span></td>
+                    <td>${item.TECHNOLOGIE || '-'}</td>
+                    <td><strong>${stockStatus}</strong></td>
+                    <td>${item.VYSKLADNIL || '-'}</td>
+                    <td>${item.ZASKLADNIL || '-'}</td>
+                    <td>
+                        <button class="quick-action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="techIssue()">📤</button>
+                        <button class="quick-action-btn" style="padding: 6px 12px; font-size: 12px;" onclick="techReceive()">📥</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        }
+
+        // Add event listeners
+        document.getElementById('techSearchInput').addEventListener('input', techSearch);
+        document.getElementById('techCategoryFilter').addEventListener('change', () => {
+            createTechCharts();
+            updateTechTable();
+        });
+
+        // ORDER MANAGEMENT
+        let orderItems = new Map();
+
+        function togglePartInOrder(partId, partName, tech, category, quantity) {
+            if (orderItems.has(partId)) {
+                orderItems.delete(partId);
+            } else {
+                orderItems.set(partId, { name: partName, tech, category, quantity });
+            }
+            updateOrderUI();
+        }
+
+        function updateOrderUI() {
+            const count = orderItems.size;
+            const btn = document.getElementById('orderFloatingBtn');
+            const badge = document.getElementById('orderBadge');
+            const orderList = document.getElementById('orderList');
+            const orderSummary = document.getElementById('orderSummary');
+
+            badge.textContent = count;
+
+            if (count > 0) {
+                btn.classList.add('has-items');
+                orderSummary.style.display = 'block';
+
+                let html = '';
+                let totalPieces = 0;
+
+                orderItems.forEach((item, partId) => {
+                    totalPieces += item.quantity;
+                    html += `
+                        <div class="order-item">
+                            <div class="order-item-name">${item.name.substring(0, 40)}${item.name.length > 40 ? '...' : ''}</div>
+                            <div class="order-item-qty">${item.quantity} ks</div>
+                            <button class="order-item-remove" onclick="removeFromOrder('${partId}')">×</button>
+                        </div>
+                    `;
+                });
+
+                orderList.innerHTML = html;
+                document.getElementById('orderTotalItems').textContent = count;
+                document.getElementById('orderTotalPieces').textContent = totalPieces;
+            } else {
+                btn.classList.remove('has-items');
+                orderSummary.style.display = 'none';
+                orderList.innerHTML = '<div class="empty-order">Košík je prázdný</div>';
+            }
+        }
+
+        function removeFromOrder(partId) {
+            orderItems.delete(partId);
+            updateOrderUI();
+            
+            // Uncheck checkbox if exists
+            const checkbox = document.querySelector(`input[data-part-id="${partId}"]`);
+            if (checkbox) checkbox.checked = false;
+        }
+
+        function toggleOrderPanel() {
+            const panel = document.getElementById('orderPanel');
+            panel.classList.toggle('hidden');
+        }
+
+        function clearOrder() {
+            if (orderItems.size === 0) return;
+            
+            if (confirm('Opravdu chcete vymazat všechny položky z objednávky?')) {
+                orderItems.clear();
+                updateOrderUI();
+                
+                // Uncheck all checkboxes
+                document.querySelectorAll('.part-checkbox').forEach(cb => cb.checked = false);
+                if (document.getElementById('selectAllFacility')) {
+                    document.getElementById('selectAllFacility').checked = false;
+                }
+            }
+        }
+
+        function createOrderExcel() {
+            if (orderItems.size === 0) {
+                alert('⚠️ Objednávka je prázdná. Vyberte prosím díly k objednání.');
+                return;
+            }
+
+            // Prepare data for Excel
+            const orderData = [];
+            orderData.push(['OBJEDNÁVKA NÁHRADNÍCH DÍLŮ']);
+            orderData.push([]);
+            orderData.push(['Datum vytvoření:', new Date().toLocaleString('cs-CZ')]);
+            orderData.push(['Vytvořil:', 'Facility Manager']);
+            orderData.push(['Sklad:', 'BRQ']);
+            orderData.push([]);
+            orderData.push(['Č.', 'ID DÍLU', 'TECHNOLOGIE', 'KATEGORIE', 'POČET KUSŮ', 'POZNÁMKA']);
+
+            let rowNum = 1;
+            let totalPieces = 0;
+            
+            orderItems.forEach((item, partId) => {
+                orderData.push([
+                    rowNum++,
+                    item.name,
+                    item.tech,
+                    item.category,
+                    item.quantity,
+                    ''
+                ]);
+                totalPieces += item.quantity;
+            });
+
+            orderData.push([]);
+            orderData.push(['CELKEM POLOŽEK:', orderItems.size]);
+            orderData.push(['CELKEM KUSŮ:', totalPieces]);
+
+            // Create workbook
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(orderData);
+
+            // Set column widths
+            ws['!cols'] = [
+                { wch: 5 },  // Č.
+                { wch: 50 }, // ID DÍLU
+                { wch: 15 }, // TECHNOLOGIE
+                { wch: 40 }, // KATEGORIE
+                { wch: 12 }, // POČET KUSŮ
+                { wch: 30 }  // POZNÁMKA
+            ];
+
+            // Add worksheet to workbook
+            XLSX.utils.book_append_sheet(wb, ws, 'Objednávka');
+
+            // Generate filename with date
+            const filename = `Objednavka_BRQ_${new Date().toISOString().split('T')[0]}.xlsx`;
+
+            // Save file
+            XLSX.writeFile(wb, filename);
+
+            // Show success message
+            alert(`✅ Objednávka byla vytvořena!\n\nSoubor: ${filename}\nPočet položek: ${orderItems.size}\nCelkem kusů: ${totalPieces}`);
+            
+            // Close panel
+            toggleOrderPanel();
+        }
+
+        function exportToCSV() {
+            let csv = 'ID_DILU,TECHNOLOGIE,KATEGORIE,MIN_ZASOBA,AKTUALNI_ZASOBA,DEFICIT,STAV\n';
+            
+            filteredData.forEach(item => {
+                const deficit = Math.max(0, item.MIN_ZASOBA - item.AKTUALNI_ZASOBA);
+                const status = item.AKTUALNI_ZASOBA < item.MIN_ZASOBA ? 'Pod minimem' : 'OK';
+                csv += `"${item.ID_DILU || ''}","${item.TECHNOLOGIE || ''}","${item.KATEGORIE || ''}",${item.MIN_ZASOBA || 0},${item.AKTUALNI_ZASOBA || 0},${deficit},"${status}"\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'export_skladu_' + new Date().toISOString().split('T')[0] + '.csv');
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
