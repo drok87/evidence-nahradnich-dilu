@@ -290,6 +290,12 @@
             overflow: hidden;
         }
 
+        .table-scroll-wrapper {
+            max-height: 600px;
+            overflow-y: auto;
+            overflow-x: auto;
+        }
+
         .table-header {
             padding: 16px 20px;
             background: var(--bg-main);
@@ -315,6 +321,9 @@
             text-transform: uppercase;
             background: var(--bg-main);
             border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
 
         td {
@@ -652,6 +661,47 @@
             opacity: 0.3;
         }
 
+        /* REPORT BUTTONS */
+        .report-btn {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: var(--transition);
+            text-align: left;
+        }
+
+        .report-btn:hover {
+            border-color: var(--primary);
+            box-shadow: var(--shadow-sm);
+            transform: translateY(-2px);
+        }
+
+        .report-btn-icon {
+            font-size: 28px;
+            flex-shrink: 0;
+        }
+
+        .report-btn-content {
+            flex: 1;
+        }
+
+        .report-btn-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 2px;
+        }
+
+        .report-btn-desc {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
         /* UPLOAD */
         .upload-section {
             max-width: 800px;
@@ -816,6 +866,41 @@
                 <canvas id="problematicPartsChart"></canvas>
             </div>
 
+            <!-- REPORTING SECTION -->
+            <div class="card">
+                <h2>📄 Reporty a Analýzy</h2>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; margin-top: 16px;">
+                    <button class="report-btn" onclick="generateWeeklyReport()">
+                        <div class="report-btn-icon">📊</div>
+                        <div class="report-btn-content">
+                            <div class="report-btn-title">Týdenní Report</div>
+                            <div class="report-btn-desc">Přehled za posledních 7 dní</div>
+                        </div>
+                    </button>
+                    <button class="report-btn" onclick="generateMonthlyReport()">
+                        <div class="report-btn-icon">📈</div>
+                        <div class="report-btn-content">
+                            <div class="report-btn-title">Měsíční Report</div>
+                            <div class="report-btn-desc">Kompletní měsíční přehled</div>
+                        </div>
+                    </button>
+                    <button class="report-btn" onclick="generateExecutiveReport()">
+                        <div class="report-btn-icon">👔</div>
+                        <div class="report-btn-content">
+                            <div class="report-btn-title">Executive Report</div>
+                            <div class="report-btn-desc">Souhrn pro vedení</div>
+                        </div>
+                    </button>
+                    <button class="report-btn" onclick="generateTrendAnalysis()">
+                        <div class="report-btn-icon">📉</div>
+                        <div class="report-btn-content">
+                            <div class="report-btn-title">Analýza Trendů</div>
+                            <div class="report-btn-desc">Dlouhodobé trendy</div>
+                        </div>
+                    </button>
+                </div>
+            </div>
+
             <!-- Controls -->
             <div class="controls">
                 <input type="text" id="searchInput" placeholder="🔍 Vyhledat díl...">
@@ -838,7 +923,7 @@
                 <div class="table-header">
                     <h2>📋 Přehled Náhradních Dílů</h2>
                 </div>
-                <div style="overflow-x: auto;">
+                <div class="table-scroll-wrapper">
                     <table>
                         <thead>
                             <tr>
@@ -916,7 +1001,7 @@
                 <div class="table-header">
                     <h2>💼 Finanční Přehled Dílů</h2>
                 </div>
-                <div style="overflow-x: auto;">
+                <div class="table-scroll-wrapper">
                     <table>
                         <thead>
                             <tr>
@@ -2156,6 +2241,228 @@
             
             // Close panel
             toggleOrderPanel();
+        }
+
+        // REPORTING FUNCTIONS
+        function generateWeeklyReport() {
+            const reportData = [];
+            const today = new Date();
+            const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+            reportData.push(['TÝDENNÍ REPORT SKLADU BRQ']);
+            reportData.push([]);
+            reportData.push(['Období:', `${weekAgo.toLocaleDateString('cs-CZ')} - ${today.toLocaleDateString('cs-CZ')}`]);
+            reportData.push(['Datum vytvoření:', new Date().toLocaleString('cs-CZ')]);
+            reportData.push([]);
+            
+            // Summary
+            reportData.push(['PŘEHLED']);
+            reportData.push(['Celkem dílů:', rawData.length]);
+            reportData.push(['Díly pod minimem:', rawData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA).length]);
+            reportData.push(['Díly s nulovou zásobou:', rawData.filter(item => item.AKTUALNI_ZASOBA === 0).length]);
+            reportData.push([]);
+
+            // Critical parts
+            reportData.push(['KRITICKÉ DÍLY']);
+            const critical = rawData.filter(item => item.AKTUALNI_ZASOBA === 0);
+            if (critical.length > 0) {
+                reportData.push(['ID DÍLU', 'TECHNOLOGIE', 'KATEGORIE', 'MIN. ZÁSOBA']);
+                critical.forEach(item => {
+                    reportData.push([item.ID_DILU, item.TECHNOLOGIE, item.KATEGORIE, item.MIN_ZASOBA]);
+                });
+            } else {
+                reportData.push(['Žádné kritické díly!']);
+            }
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(reportData);
+            ws['!cols'] = [{ wch: 60 }, { wch: 15 }, { wch: 40 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'Týdenní Report');
+
+            const filename = `Tydenni_Report_BRQ_${today.toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            showReportNotification('✅ Týdenní report byl vytvořen!', `Soubor: ${filename}`);
+        }
+
+        function generateMonthlyReport() {
+            const reportData = [];
+            const today = new Date();
+
+            reportData.push(['MĚSÍČNÍ REPORT SKLADU BRQ']);
+            reportData.push(['Datum:', today.toLocaleDateString('cs-CZ')]);
+            reportData.push([]);
+            
+            const total = rawData.length;
+            const critical = rawData.filter(item => item.AKTUALNI_ZASOBA === 0).length;
+            const low = rawData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA).length;
+            
+            reportData.push(['KLÍČOVÉ METRIKY']);
+            reportData.push(['Celkem dílů:', total]);
+            reportData.push(['Kritické díly:', critical]);
+            reportData.push(['Pod minimem:', low]);
+            reportData.push([]);
+
+            // By technology
+            reportData.push(['PODLE TECHNOLOGIÍ']);
+            reportData.push(['Technologie', 'Celkem', 'Pod minimem', '%']);
+            
+            const techStats = {};
+            rawData.forEach(item => {
+                if (!techStats[item.TECHNOLOGIE]) {
+                    techStats[item.TECHNOLOGIE] = { total: 0, low: 0 };
+                }
+                techStats[item.TECHNOLOGIE].total++;
+                if (item.AKTUALNI_ZASOBA < item.MIN_ZASOBA) {
+                    techStats[item.TECHNOLOGIE].low++;
+                }
+            });
+
+            Object.entries(techStats).forEach(([tech, stats]) => {
+                reportData.push([tech, stats.total, stats.low, ((stats.low / stats.total) * 100).toFixed(1) + '%']);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(reportData);
+            ws['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 10 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'Měsíční Report');
+
+            const filename = `Mesicni_Report_BRQ_${today.toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            showReportNotification('✅ Měsíční report byl vytvořen!', `Soubor: ${filename}`);
+        }
+
+        function generateExecutiveReport() {
+            const reportData = [];
+            const today = new Date();
+
+            reportData.push(['EXECUTIVE SUMMARY - SKLAD BRQ']);
+            reportData.push(['Datum:', today.toLocaleDateString('cs-CZ')]);
+            reportData.push([]);
+            
+            const total = rawData.length;
+            const critical = rawData.filter(item => item.AKTUALNI_ZASOBA === 0).length;
+            const low = rawData.filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA).length;
+            const readiness = ((rawData.filter(item => item.AKTUALNI_ZASOBA >= item.MIN_ZASOBA).length / total) * 100).toFixed(1);
+            
+            reportData.push(['KLÍČOVÉ UKAZATELE']);
+            reportData.push(['Ukazatel', 'Hodnota', 'Status']);
+            reportData.push(['Celkem dílů', total, '']);
+            reportData.push(['Kritické díly', critical, critical > 0 ? 'AKCE NUTNÁ' : 'OK']);
+            reportData.push(['Díly pod minimem', low, low > total * 0.3 ? 'RIZIKO' : 'OK']);
+            reportData.push(['Připravenost', readiness + '%', readiness > 80 ? 'DOBRÁ' : 'NEDOSTATEČNÁ']);
+            reportData.push([]);
+
+            // Top priorities
+            reportData.push(['TOP 10 PRIORIT']);
+            const topPriorities = rawData
+                .filter(item => item.AKTUALNI_ZASOBA < item.MIN_ZASOBA)
+                .sort((a, b) => {
+                    if (a.AKTUALNI_ZASOBA === 0 && b.AKTUALNI_ZASOBA !== 0) return -1;
+                    if (b.AKTUALNI_ZASOBA === 0 && a.AKTUÁLNÍ_ZASOBA !== 0) return 1;
+                    return (a.AKTUALNI_ZASOBA / a.MIN_ZASOBA) - (b.AKTUALNI_ZASOBA / b.MIN_ZASOBA);
+                })
+                .slice(0, 10);
+
+            reportData.push(['#', 'Díl', 'Aktuální', 'Minimum', 'Deficit']);
+            topPriorities.forEach((item, index) => {
+                reportData.push([
+                    index + 1,
+                    item.ID_DILU.substring(0, 50),
+                    item.AKTUALNI_ZASOBA,
+                    item.MIN_ZASOBA,
+                    item.MIN_ZASOBA - item.AKTUALNI_ZASOBA
+                ]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(reportData);
+            ws['!cols'] = [{ wch: 10 }, { wch: 50 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'Executive Report');
+
+            const filename = `Executive_Report_BRQ_${today.toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            showReportNotification('✅ Executive report byl vytvořen!', `Soubor: ${filename}`);
+        }
+
+        function generateTrendAnalysis() {
+            const reportData = [];
+            const today = new Date();
+
+            reportData.push(['ANALÝZA TRENDŮ - SKLAD BRQ']);
+            reportData.push(['Datum:', today.toLocaleDateString('cs-CZ')]);
+            reportData.push([]);
+            
+            reportData.push(['POZNÁMKA: Pro kompletní analýzu je potřeba historická data']);
+            reportData.push([]);
+
+            // Current state by category
+            reportData.push(['AKTUÁLNÍ STAV PODLE KATEGORIÍ']);
+            reportData.push(['Kategorie', 'Počet dílů', 'Ø Zásoba', 'Problémové']);
+            
+            const categoryAnalysis = {};
+            rawData.forEach(item => {
+                const cat = item.KATEGORIE || 'Ostatní';
+                if (!categoryAnalysis[cat]) {
+                    categoryAnalysis[cat] = { count: 0, totalStock: 0, problems: 0 };
+                }
+                categoryAnalysis[cat].count++;
+                categoryAnalysis[cat].totalStock += item.AKTUALNI_ZASOBA;
+                if (item.AKTUALNI_ZASOBA < item.MIN_ZASOBA) {
+                    categoryAnalysis[cat].problems++;
+                }
+            });
+
+            Object.entries(categoryAnalysis).forEach(([cat, stats]) => {
+                reportData.push([
+                    cat,
+                    stats.count,
+                    (stats.totalStock / stats.count).toFixed(1),
+                    stats.problems
+                ]);
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(reportData);
+            ws['!cols'] = [{ wch: 40 }, { wch: 15 }, { wch: 15 }, { wch: 15 }];
+            XLSX.utils.book_append_sheet(wb, ws, 'Analýza Trendů');
+
+            const filename = `Analyza_Trendu_BRQ_${today.toISOString().split('T')[0]}.xlsx`;
+            XLSX.writeFile(wb, filename);
+            
+            showReportNotification('✅ Analýza trendů byla vytvořena!', `Soubor: ${filename}`);
+        }
+
+        function showReportNotification(title, message) {
+            const notification = document.createElement('div');
+            notification.style.cssText = `
+                position: fixed;
+                top: 24px;
+                right: 24px;
+                background: white;
+                border: 1px solid var(--border);
+                border-left: 4px solid var(--success);
+                border-radius: 12px;
+                padding: 16px 20px;
+                box-shadow: var(--shadow-lg);
+                z-index: 10000;
+                max-width: 400px;
+            `;
+            
+            notification.innerHTML = `
+                <div style="display: flex; justify-content: space-between; gap: 12px;">
+                    <div>
+                        <div style="font-weight: 600; margin-bottom: 4px;">${title}</div>
+                        <div style="font-size: 13px; color: var(--text-secondary);">${message}</div>
+                    </div>
+                    <button onclick="this.parentElement.parentElement.remove()" style="background: none; border: none; cursor: pointer; font-size: 20px;">×</button>
+                </div>
+            `;
+            
+            document.body.appendChild(notification);
+            setTimeout(() => notification.remove(), 5000);
         }
 
         function exportToCSV() {
